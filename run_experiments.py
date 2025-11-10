@@ -15,23 +15,25 @@ from argparse import ArgumentParser
 
 # Define new experiments based on analysis
 EXPERIMENTS = {
-    # Simple comparison: Standard VQ vs BA VQ
+    # Longer runs with more codebook capacity
     'standard': {
-        'name': 'standard_vq_20ep',
+        'name': 'standard_vq_50ep_1024codes',
         'vq_type': 'standard',
-        'max_epochs': 20,
-        'description': 'Standard VQ baseline, 20 epochs',
+        'num_embeddings': 1024,
+        'max_epochs': 50,
+        'description': 'Standard VQ: 50 epochs, 1024 codes',
     },
     'ba': {
-        'name': 'ba_vq_20ep_beta0to10',
+        'name': 'ba_vq_50ep_1024codes_beta0to20',
         'vq_type': 'ba',
+        'num_embeddings': 1024,
         'beta_start': 0.0,
-        'beta_end': 10.0,
+        'beta_end': 20.0,
         'num_cycles': 1,
         'ba_iters': 2,
         'entropy_weight': 0.0,
-        'max_epochs': 20,
-        'description': 'BA VQ: β 0→10, 1 cycle, entropy=0, ba_iters=2',
+        'max_epochs': 50,
+        'description': 'BA VQ: 50 epochs, 1024 codes, β 0→20, entropy=0',
     },
 }
 

@@ -13,7 +13,10 @@ cd vector-quantize
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
+# Install vq_modules (local VQ implementations)
+pip install -e .
+
+# Install other dependencies
 pip install -r vqvae_cifar/requirements.txt
 pip install wandb
 

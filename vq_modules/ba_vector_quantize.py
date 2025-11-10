@@ -205,7 +205,8 @@ class BAVectorQuantize(nn.Module):
         # Cosine annealing with cycling: smooth transition from beta_start to beta_end
         # repeated num_cycles times
         t = min(step / (total_steps - 1), 1.0)
-        cycle_progress = (t * self.num_cycles) % 1.0  # Progress within current cycle
+        # Progress within current cycle: handle edge case where modulo gives 0 at cycle boundaries
+        cycle_progress = (t * self.num_cycles) % 1.0 or (1.0 if t > 0 else 0.0)
         new_beta = self.beta_start + (self.beta_end - self.beta_start) * 0.5 * (1 - cos(pi * cycle_progress))
         self.beta.data = torch.tensor(new_beta, device=self.beta.device)
 

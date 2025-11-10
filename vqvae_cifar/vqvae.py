@@ -12,7 +12,7 @@ from pytorch_lightning.loggers import WandbLogger
 import torchvision
 import wandb
 
-from vector_quantize_pytorch import VectorQuantize, BAVectorQuantize
+from vq_modules import VectorQuantize, BAVectorQuantize
 from data import CIFAR10Data
 from model import DeepMindEncoder, DeepMindDecoder
 

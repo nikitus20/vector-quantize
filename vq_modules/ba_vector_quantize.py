@@ -24,7 +24,7 @@ from torch.amp import autocast
 
 from einops import rearrange, reduce, pack, unpack
 
-from vector_quantize_pytorch.vector_quantize_pytorch import kmeans
+from vq_modules.vector_quantize_pytorch import kmeans
 
 # Named tuple for clean return values
 Return = namedtuple('Return', ['quantized', 'indices', 'loss'])

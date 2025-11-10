@@ -73,8 +73,8 @@ def build_command(exp_config):
         if key in ['name', 'description']:
             continue
 
-        # Convert underscores to dashes for CLI args
-        arg_name = f"--{key.replace('_', '-')}"
+        # Keep underscores to match vqvae.py argument names
+        arg_name = f"--{key}"
 
         if isinstance(value, bool):
             if value:

@@ -75,6 +75,7 @@ class VQVAE(pl.LightningModule):
         # BA VQ specific parameters
         beta_start: float = 0.5,
         beta_end: float = 3.0,
+        num_cycles: int = 1,
         ba_iters: int = 2,
         entropy_weight: float = 0.1,
     ):
@@ -103,6 +104,7 @@ class VQVAE(pl.LightningModule):
             commitment_weight=commitment_weight,
             beta_start=beta_start,
             beta_end=beta_end,
+            num_cycles=num_cycles,
             ba_iters=ba_iters,
             entropy_weight=entropy_weight,
         )
@@ -129,6 +131,7 @@ class VQVAE(pl.LightningModule):
         commitment_weight: float,
         beta_start: float,
         beta_end: float,
+        num_cycles: int,
         ba_iters: int,
         entropy_weight: float,
     ):
@@ -152,6 +155,7 @@ class VQVAE(pl.LightningModule):
                 entropy_weight=entropy_weight,
                 beta_start=beta_start,
                 beta_end=beta_end,
+                num_cycles=num_cycles,
                 ba_iters=ba_iters,
                 accept_image_fmap=True,
                 kmeans_init=True,
@@ -301,6 +305,8 @@ def cli_main():
                         help='BA VQ: Initial beta (inverse temperature)')
     parser.add_argument("--beta_end", type=float, default=3.0,
                         help='BA VQ: Final beta (inverse temperature)')
+    parser.add_argument("--num_cycles", type=int, default=1,
+                        help='BA VQ: Number of beta annealing cycles (1=standard, >1=cyclical)')
     parser.add_argument("--ba_iters", type=int, default=2,
                         help='BA VQ: Number of BA iterations per forward pass')
     parser.add_argument("--entropy_weight", type=float, default=0.1,
@@ -352,6 +358,7 @@ def cli_main():
         commitment_weight=args.commitment_weight,
         beta_start=args.beta_start,
         beta_end=args.beta_end,
+        num_cycles=args.num_cycles,
         ba_iters=args.ba_iters,
         entropy_weight=args.entropy_weight,
     )

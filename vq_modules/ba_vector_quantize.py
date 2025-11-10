@@ -101,6 +101,7 @@ class BAVectorQuantize(nn.Module):
         entropy_weight: Weight for entropy regularization on Q (encourages uniform usage)
         beta_start: Initial beta (inverse temperature) - low for soft exploration
         beta_end: Final beta after annealing - high for hard assignment
+        num_cycles: Number of beta annealing cycles (default 1, set >1 for cyclical)
         ba_iters: Number of BA E-M iterations per forward pass
         ema_pi_decay: EMA decay for prior p(k) (dataset-level marginal)
         ema_code_decay: EMA decay for codebook updates (BA-inspired weighted EMA)
@@ -122,6 +123,7 @@ class BAVectorQuantize(nn.Module):
         entropy_weight: float = 0.01,
         beta_start: float = 0.5,
         beta_end: float = 3.0,
+        num_cycles: int = 1,
         ba_iters: int = 2,
         ema_pi_decay: float = 0.99,
         ema_code_decay: float = 0.99,
@@ -143,6 +145,7 @@ class BAVectorQuantize(nn.Module):
         self.entropy_weight = entropy_weight
         self.beta_start = beta_start
         self.beta_end = beta_end
+        self.num_cycles = num_cycles
         self.ba_iters = ba_iters
         self.ema_pi_decay = ema_pi_decay
         self.ema_code_decay = ema_code_decay
@@ -183,21 +186,27 @@ class BAVectorQuantize(nn.Module):
 
     def _update_beta(self, step: Optional[int], total_steps: Optional[int]):
         """
-        Update beta using cosine annealing schedule.
-        
+        Update beta using cosine annealing schedule with optional cycling.
+
         Beta (inverse temperature) controls the softness of assignments:
         - Low beta (early training): Soft assignments, exploration
         - High beta (late training): Hard assignments, exploitation
-        
+
+        With num_cycles > 1, beta oscillates between beta_start and beta_end
+        multiple times, allowing periodic exploration throughout training.
+
         This follows BA theory: Start with high entropy (soft) to explore the RD space,
-        gradually sharpen to converge to optimal quantizer.
+        gradually sharpen to converge to optimal quantizer. Cycling allows
+        re-exploration of the rate-distortion space.
         """
         if step is None or total_steps is None or total_steps <= 1:
             return
 
-        # Cosine annealing: smooth transition from beta_start to beta_end
+        # Cosine annealing with cycling: smooth transition from beta_start to beta_end
+        # repeated num_cycles times
         t = min(step / (total_steps - 1), 1.0)
-        new_beta = self.beta_start + (self.beta_end - self.beta_start) * 0.5 * (1 - cos(pi * t))
+        cycle_progress = (t * self.num_cycles) % 1.0  # Progress within current cycle
+        new_beta = self.beta_start + (self.beta_end - self.beta_start) * 0.5 * (1 - cos(pi * cycle_progress))
         self.beta.data = torch.tensor(new_beta, device=self.beta.device)
 
     def _compute_distances_chunked(self, z: torch.Tensor, codebook: torch.Tensor) -> torch.Tensor:

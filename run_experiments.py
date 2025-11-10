@@ -15,52 +15,83 @@ from argparse import ArgumentParser
 
 # Define new experiments based on analysis
 EXPERIMENTS = {
-    # Previous best performers (for reference/comparison)
-    'baseline': {
-        'name': 'baseline_standard',
-        'vq_type': 'standard',
-        'max_epochs': 10,
-    },
-    'exp8': {
-        'name': 'exp8_ba_low_entropy',
+    # NEW EXPERIMENTS: 20 epochs, cyclical schedules, higher beta_end
+    '14': {
+        'name': 'exp14_20ep_standard_beta3',
         'vq_type': 'ba',
-        'beta_start': 0.5,
+        'beta_start': 0.0,
         'beta_end': 3.0,
-        'ba_iters': 2,
-        'entropy_weight': 0.01,
-        'max_epochs': 10,
-    },
-
-    # NEW EXPERIMENTS: Zero entropy + better exploration-exploitation
-    '11': {
-        'name': 'exp11_zero_start_standard_end',
-        'vq_type': 'ba',
-        'beta_start': 0.0,      # Maximum exploration
-        'beta_end': 3.0,        # Standard exploitation
-        'ba_iters': 2,
-        'entropy_weight': 0.0,  # NO entropy loss (fair comparison)
-        'max_epochs': 10,
-        'description': 'Zero-Start Standard-End: Maximize spike, early transition',
-    },
-    '12': {
-        'name': 'exp12_ultralow_hard_end',
-        'vq_type': 'ba',
-        'beta_start': 0.05,     # Near-maximum exploration
-        'beta_end': 4.0,        # Harder exploitation
+        'num_cycles': 1,
         'ba_iters': 2,
         'entropy_weight': 0.0,
-        'max_epochs': 10,
-        'description': 'Ultra-Low Start Hard-End: Aggressive exploitation',
+        'max_epochs': 20,
+        'description': '20 epochs, standard annealing, beta_end=3.0',
     },
-    '13': {
-        'name': 'exp13_low_standard_1iter',
+    '15': {
+        'name': 'exp15_20ep_standard_beta5',
         'vq_type': 'ba',
-        'beta_start': 0.1,      # Like exp3
-        'beta_end': 3.0,        # Standard exploitation
-        'ba_iters': 1,          # Faster!
+        'beta_start': 0.0,
+        'beta_end': 5.0,
+        'num_cycles': 1,
+        'ba_iters': 2,
         'entropy_weight': 0.0,
-        'max_epochs': 10,
-        'description': 'Low-Start Standard-End 1-Iter: Efficient',
+        'max_epochs': 20,
+        'description': '20 epochs, standard annealing, higher beta_end=5.0',
+    },
+    '16': {
+        'name': 'exp16_20ep_standard_beta6',
+        'vq_type': 'ba',
+        'beta_start': 0.0,
+        'beta_end': 6.0,
+        'num_cycles': 1,
+        'ba_iters': 2,
+        'entropy_weight': 0.0,
+        'max_epochs': 20,
+        'description': '20 epochs, standard annealing, higher beta_end=6.0',
+    },
+    '17': {
+        'name': 'exp17_20ep_cyclical2_beta3',
+        'vq_type': 'ba',
+        'beta_start': 0.0,
+        'beta_end': 3.0,
+        'num_cycles': 2,
+        'ba_iters': 2,
+        'entropy_weight': 0.0,
+        'max_epochs': 20,
+        'description': '20 epochs, 2 cycles, beta_end=3.0',
+    },
+    '18': {
+        'name': 'exp18_20ep_cyclical3_beta3',
+        'vq_type': 'ba',
+        'beta_start': 0.0,
+        'beta_end': 3.0,
+        'num_cycles': 3,
+        'ba_iters': 2,
+        'entropy_weight': 0.0,
+        'max_epochs': 20,
+        'description': '20 epochs, 3 cycles, beta_end=3.0',
+    },
+    '19': {
+        'name': 'exp19_20ep_cyclical2_beta5',
+        'vq_type': 'ba',
+        'beta_start': 0.0,
+        'beta_end': 5.0,
+        'num_cycles': 2,
+        'ba_iters': 2,
+        'entropy_weight': 0.0,
+        'max_epochs': 20,
+        'description': '20 epochs, 2 cycles, higher beta_end=5.0',
+    },
+    '20': {
+        'name': 'exp20_20ep_cyclical3_beta5',
+        'vq_type': 'ba',
+        'beta_start': 0.0,
+        'beta_end': 5.0,
+        'num_cycles': 3,
+        'ba_iters': 2,
+        'entropy_weight': 0.0,
+        'max_epochs': 20,
+        'description': '20 epochs, 3 cycles, higher beta_end=5.0',
     },
 }
 
@@ -136,7 +167,7 @@ def run_experiment(exp_id):
 def main():
     parser = ArgumentParser(description='Run VQ-VAE experiments on Lambda GPU')
     parser.add_argument('--exp', nargs='+', help='Experiment ID(s) to run')
-    parser.add_argument('--all', action='store_true', help='Run all new experiments (11, 12, 13)')
+    parser.add_argument('--all', action='store_true', help='Run all new experiments (14-20)')
     parser.add_argument('--list', action='store_true', help='List available experiments')
 
     args = parser.parse_args()
@@ -151,6 +182,7 @@ def main():
                 print(f"  → {desc}")
             if config['vq_type'] == 'ba':
                 print(f"  → β: {config.get('beta_start', '-')} → {config.get('beta_end', '-')}, "
+                      f"cycles={config.get('num_cycles', 1)}, "
                       f"iters={config.get('ba_iters', '-')}, "
                       f"entropy={config.get('entropy_weight', '-')}")
         print()
@@ -158,7 +190,7 @@ def main():
 
     # Determine which experiments to run
     if args.all:
-        exp_ids = ['11', '12', '13']
+        exp_ids = ['14', '15', '16', '17', '18', '19', '20']
     elif args.exp:
         exp_ids = args.exp
     else:

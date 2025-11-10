@@ -1,4 +1,5 @@
 from vector_quantize_pytorch.vector_quantize_pytorch import VectorQuantize
+from vector_quantize_pytorch.ba_vector_quantize import BAVectorQuantize
 from vector_quantize_pytorch.residual_vq import ResidualVQ, GroupedResidualVQ
 from vector_quantize_pytorch.random_projection_quantizer import RandomProjectionQuantizer
 from vector_quantize_pytorch.finite_scalar_quantization import FSQ

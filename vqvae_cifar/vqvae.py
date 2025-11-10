@@ -7,12 +7,60 @@ from argparse import ArgumentParser, Namespace
 import torch
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import WandbLogger
+import torchvision
+import wandb
 
 from vector_quantize_pytorch import VectorQuantize, BAVectorQuantize
 from data import CIFAR10Data
 from model import DeepMindEncoder, DeepMindDecoder
+
+
+class ImageReconstructionLogger(Callback):
+    """Callback to log image reconstructions to WandB"""
+
+    def __init__(self, num_samples=8):
+        super().__init__()
+        self.num_samples = num_samples
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        """Log sample reconstructions at the end of validation"""
+        if not isinstance(trainer.logger, WandbLogger):
+            return
+
+        # Get a batch from validation set
+        val_dataloader = trainer.val_dataloaders
+        batch = next(iter(val_dataloader))
+        images, _ = batch
+
+        # Limit to num_samples
+        images = images[:self.num_samples].to(pl_module.device)
+
+        # Generate reconstructions
+        with torch.no_grad():
+            pl_module.eval()
+            reconstructions, _, _, _ = pl_module(images, return_vq_metrics=False)
+            pl_module.train()
+
+        # Create comparison grid
+        # Interleave original and reconstruction
+        comparison = torch.stack([images, reconstructions], dim=1).flatten(0, 1)
+        grid = torchvision.utils.make_grid(
+            comparison,
+            nrow=2,  # 2 columns: original, reconstruction
+            normalize=True,
+            value_range=(0, 1)
+        )
+
+        # Log to wandb
+        trainer.logger.experiment.log({
+            "reconstructions": wandb.Image(
+                grid,
+                caption=f"Epoch {trainer.current_epoch}"
+            ),
+            "global_step": trainer.global_step,
+        })
 
 
 class VQVAE(pl.LightningModule):
@@ -106,7 +154,6 @@ class VQVAE(pl.LightningModule):
                 beta_end=beta_end,
                 ba_iters=ba_iters,
                 accept_image_fmap=True,
-                straight_through=True,
                 kmeans_init=True,
                 kmeans_iters=10,
             )
@@ -272,9 +319,15 @@ def cli_main():
     parser.add_argument("--wandb_project", type=str, default='vqvae-cifar10',
                         help='WandB project name')
     parser.add_argument("--wandb_name", type=str, default=None,
-                        help='WandB run name (defaults to vq_type)')
+                        help='WandB run name (auto-generated if not provided)')
+    parser.add_argument("--wandb_entity", type=str, default=None,
+                        help='WandB entity (username or team)')
+    parser.add_argument("--wandb_tags", type=str, nargs='+', default=None,
+                        help='Tags for the run (e.g., --wandb_tags experiment baseline)')
     parser.add_argument("--use_wandb", action='store_true',
                         help='Enable WandB logging')
+    parser.add_argument("--wandb_offline", action='store_true',
+                        help='Run WandB in offline mode')
 
     args = parser.parse_args()
 
@@ -306,15 +359,49 @@ def cli_main():
     # WandB Logger (optional)
     logger = None
     if args.use_wandb:
-        wandb_name = args.wandb_name if args.wandb_name else f'vqvae-{args.vq_type}'
+        import os
+        from datetime import datetime
+
+        # Auto-generate run name if not provided
+        if args.wandb_name is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            wandb_name = f"{args.vq_type}_nhid{args.n_hid}_cb{args.num_embeddings}_{timestamp}"
+        else:
+            wandb_name = args.wandb_name
+
+        # Prepare tags
+        tags = args.wandb_tags if args.wandb_tags else []
+        tags.append(args.vq_type)
+        tags.append(f"n_hid_{args.n_hid}")
+        tags.append(accelerator)
+
+        # Set offline mode if requested
+        if args.wandb_offline:
+            os.environ["WANDB_MODE"] = "offline"
+
         logger = WandbLogger(
             project=args.wandb_project,
+            entity=args.wandb_entity,
             name=wandb_name,
-            config=vars(args)
+            tags=tags,
+            config=vars(args),
+            log_model=True,  # Log model checkpoints to wandb
         )
+
+        # Log additional model info
+        logger.experiment.config.update({
+            "total_params": sum(p.numel() for p in model.parameters()),
+            "trainable_params": sum(p.numel() for p in model.parameters() if p.requires_grad),
+            "model_size_mb": sum(p.numel() for p in model.parameters()) * 4 / (1024**2),  # Assuming float32
+        })
 
     # Trainer
     callbacks = [ModelCheckpoint(monitor='val_recon_loss', mode='min', save_top_k=1)]
+
+    # Add image logging callback if using wandb
+    if args.use_wandb:
+        callbacks.append(ImageReconstructionLogger(num_samples=8))
+
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         callbacks=callbacks,
